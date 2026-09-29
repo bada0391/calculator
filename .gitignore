@@ -1,0 +1,14 @@
+# 파이썬
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# PyInstaller 빌드 결과물 (exe는 이 안에 생깁니다)
+build/
+dist/
+*.spec
+
+# 운영체제 별산물
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "계산기 실행 (GUI)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/calculator.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "계산기 로직 테스트",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/calculator.py",
+            "args": ["--test"],
+            "console": "integratedTerminal"
+        }
+    ]
+}

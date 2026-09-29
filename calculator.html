@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계산기 · GS-1000</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15171A; --glow:#23262C;
+    --body-a:#EFEAE0; --body-b:#DCD5C6;
+    --key:#F7F4ED;   --key-txt:#26231D;
+    --fn:#DAD4C6;    --fn-txt:#57524A; --ac-txt:#B4472E;
+    --op:#B7BE8F;    --op-txt:#2E3419;
+    --eq:#DD5B36;    --eq-txt:#FFF7F1;
+    --lcd-a:#C9CDB7; --lcd-b:#B4B9A0; --lcd-txt:#252A1E;
+    --key-sh:0 3px 0 rgba(31,27,18,.16), 0 8px 14px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.75);
+    --key-sh-active:0 1px 0 rgba(31,27,18,.16), 0 2px 4px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100svh; display:grid; place-items:center;
+    padding:32px 16px;
+    background:radial-gradient(900px 620px at 50% 16%, var(--glow), var(--bg) 72%);
+    font-family:'Space Grotesk', system-ui, -apple-system, sans-serif;
+  }
+  .stage{display:flex; flex-direction:column; align-items:center; gap:20px}
+  .calc{
+    width:min(92vw, 356px);
+    background:linear-gradient(180deg, var(--body-a), var(--body-b));
+    border-radius:30px; padding:18px 18px 13px;
+    box-shadow:0 34px 70px rgba(0,0,0,.55), 0 4px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.65);
+  }
+  .display{
+    background:linear-gradient(180deg, var(--lcd-a), var(--lcd-b));
+    border-radius:16px; padding:12px 16px 10px; min-height:114px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.28), inset 0 -1px 0 rgba(255,255,255,.35);
+    font-family:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .expr{
+    color:rgba(37,42,30,.62); font-size:13px; min-height:17px;
+    white-space:nowrap; text-align:right; overflow:hidden;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 18%);
+            mask-image:linear-gradient(90deg, transparent 0, #000 18%);
+  }
+  .val{
+    color:var(--lcd-txt); font-size:44px; font-weight:600; line-height:1.15;
+    text-align:right; letter-spacing:.02em; font-variant-numeric:tabular-nums;
+    white-space:nowrap; overflow:hidden;
+  }
+  .val.small{font-size:34px}
+  .val.tiny{font-size:27px}
+  .val.err{color:#9E3A20; font-size:30px; white-space:normal; line-height:1.3}
+  .keys{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:clamp(9px, 2.4vw, 13px); margin-top:16px;
+  }
+  .k{
+    border:0; cursor:pointer; aspect-ratio:1; border-radius:999px;
+    font:inherit; font-size:clamp(19px, 5vw, 23px); font-weight:600;
+    color:var(--key-txt); background:var(--key); box-shadow:var(--key-sh);
+    transition:transform .06s ease, box-shadow .06s ease;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  }
+  .k:active, .k.pressed{transform:translateY(2px); box-shadow:var(--key-sh-active)}
+  .k.fn{background:var(--fn); color:var(--fn-txt); font-size:clamp(17px, 4.4vw, 20px)}
+  .k.ac{color:var(--ac-txt); font-weight:700}
+  .k.op{background:var(--op); color:var(--op-txt); font-size:clamp(21px, 5.6vw, 26px)}
+  .k.eq{background:var(--eq); color:var(--eq-txt); font-size:clamp(21px, 5.6vw, 26px)}
+  .k:focus-visible{outline:3px solid #DE5B36; outline-offset:3px}
+  .brand{
+    margin-top:12px; text-align:center; font-size:10px; letter-spacing:.42em;
+    color:rgba(60,54,42,.38); text-shadow:0 1px 0 rgba(255,255,255,.5); user-select:none;
+  }
+  .hint{margin:0; font-size:12.5px; color:#82868D; text-align:center; line-height:2.1; max-width:420px}
+  .hint kbd{
+    font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:11px;
+    background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
+    border-bottom-width:2px; border-radius:6px; padding:2px 6px;
+    color:#C9CCD1; margin:0 1px;
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<main class="stage">
+  <section class="calc" aria-label="계산기">
+    <div class="display" aria-live="polite">
+      <div class="expr" id="expr"></div>
+      <div class="val" id="val">0</div>
+    </div>
+    <div class="keys">
+      <button class="k fn ac" data-key="AC">AC</button>
+      <button class="k fn"    data-key="±" aria-label="부호 바꾸기">±</button>
+      <button class="k fn"    data-key="%" aria-label="퍼센트">%</button>
+      <button class="k fn"    data-key="⌫" aria-label="한 자 지우기">⌫</button>
+
+      <button class="k num" data-key="7">7</button>
+      <button class="k num" data-key="8">8</button>
+      <button class="k num" data-key="9">9</button>
+      <button class="k op"  data-key="/" aria-label="나누기">÷</button>
+
+      <button class="k num" data-key="4">4</button>
+      <button class="k num" data-key="5">5</button>
+      <button class="k num" data-key="6">6</button>
+      <button class="k op"  data-key="*" aria-label="곱하기">×</button>
+
+      <button class="k num" data-key="1">1</button>
+      <button class="k num" data-key="2">2</button>
+      <button class="k num" data-key="3">3</button>
+      <button class="k op"  data-key="-" aria-label="빼기">−</button>
+
+      <button class="k num" data-key="0">0</button>
+      <button class="k num" data-key="." aria-label="소수점">.</button>
+      <button class="k eq"  data-key="=" aria-label="계산하기">=</button>
+      <button class="k op"  data-key="+" aria-label="더하기">+</button>
+    </div>
+    <div class="brand" aria-hidden="true">GS-1000</div>
+  </section>
+  <p class="hint">
+    키보드로도 쓸 수 있어요 — 숫자 · <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> ·
+    <kbd>Enter</kbd> 계산 · <kbd>Esc</kbd> 전체 지우기 · <kbd>Backspace</kbd> 한 자 지우기
+  </p>
+</main>
+
+<script>
+(function(){
+'use strict';
+/*__CORE_START__*/
+const SYM = {'+':'+', '-':'−', '*':'×', '/':'÷'};
+
+function fresh(){
+  return {a:null, op:null, cur:'0', overwrite:false, err:false,
+          justEq:false, lastOp:null, lastB:null, expr:''};
+}
+
+function num(s){ return parseFloat(s); }
+
+function san(x){ return +x.toPrecision(12); }
+
+function compute(a, op, b){
+  let r;
+  switch(op){
+    case '+': r = a + b; break;
+    case '-': r = a - b; break;
+    case '*': r = a * b; break;
+    case '/': r = (b === 0) ? NaN : a / b; break;
+  }
+  return san(r);
+}
+
+function fmt(x){
+  if (typeof x !== 'number' || !isFinite(x)) return null;
+  if (x !== 0 && (Math.abs(x) >= 1e15 || Math.abs(x) < 1e-7)){
+    return x.toExponential(6).replace(/\.?0+e/, 'e');
+  }
+  return String(+x.toPrecision(12));
+}
+
+function group(s){
+  if (s == null || /e/i.test(s)) return s;
+  let parts = s.split('.');
+  let i = parts[0], d = parts[1];
+  const neg = i.startsWith('-');
+  if (neg) i = i.slice(1);
+  i = i.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (neg ? '-' : '') + i + (d !== undefined ? '.' + d : '');
+}
+
+function applyKey(st, key){
+  const s = Object.assign({}, st);
+
+  if (key === 'AC') return fresh();
+  if (s.err) return s;
+
+  if (/^[0-9]$/.test(key)){
+    if (s.justEq){ s.a = null; s.op = null; s.expr = ''; s.justEq = false; }
+    if (s.overwrite){ s.cur = key; s.overwrite = false; }
+    else {
+      const digits = s.cur.replace(/[-.]/g, '').length;
+      if (digits >= 14) return s;
+      if (s.cur === '0') s.cur = key;
+      else if (s.cur === '-0') s.cur = '-' + key;
+      else s.cur += key;
+    }
+    return s;
+  }
+
+  if (key === '.'){
+    if (s.justEq){ s.a = null; s.op = null; s.expr = ''; s.justEq = false; s.cur = '0.'; s.overwrite = false; return s; }
+    if (s.overwrite){ s.cur = '0.'; s.overwrite = false; return s; }
+    if (!s.cur.includes('.')) s.cur += '.';
+    return s;
+  }
+
+  if (key === '±'){
+    if (s.cur === '0' || s.cur === '0.') return s;
+    if (/e/i.test(s.cur)){ const f = fmt(-num(s.cur)); if (f !== null) s.cur = f; return s; }
+    s.cur = s.cur.startsWith('-') ? s.cur.slice(1) : '-' + s.cur;
+    return s;
+  }
+
+  if (key === '%'){
+    if (s.overwrite && !s.justEq) return s;
+    const c = num(s.cur);
+    const r = (s.op === '+' || s.op === '-') ? san(s.a * c / 100) : san(c / 100);
+    const f = fmt(r);
+    if (f === null){ return errState(); }
+    s.cur = f; s.overwrite = true;
+    return s;
+  }
+
+  if (key === '⌫'){
+    if (s.overwrite) return s;
+    s.cur = s.cur.slice(0, -1);
+    if (s.cur === '' || s.cur === '-' || s.cur === '-0') s.cur = '0';
+    return s;
+  }
+
+  if (key in SYM){
+    s.justEq = false;
+    if (s.op !== null && s.overwrite){         // 연산자 교체
+      s.op = key; s.expr = fmt(s.a) + ' ' + SYM[key];
+      return s;
+    }
+    if (s.op !== null && s.a !== null){        // 연속 계산 (왼쪽부터)
+      const r = compute(s.a, s.op, num(s.cur));
+      const f = fmt(r);
+      if (f === null) return errState();
+      s.a = r; s.cur = f; s.overwrite = true; s.op = key;
+      s.expr = f + ' ' + SYM[key];
+      return s;
+    }
+    s.a = num(s.cur); s.op = key; s.overwrite = true;
+    s.expr = fmt(s.a) + ' ' + SYM[key];
+    return s;
+  }
+
+  if (key === '='){
+    if (s.op !== null && s.a !== null){
+      const b = num(s.cur);
+      const r = compute(s.a, s.op, b);
+      const f = fmt(r);
+      if (f === null) return errState();
+      s.expr = fmt(s.a) + ' ' + SYM[s.op] + ' ' + b + ' =';
+      s.lastOp = s.op; s.lastB = b;
+      s.cur = f; s.a = null; s.op = null; s.overwrite = true; s.justEq = true;
+      return s;
+    }
+    if (s.lastOp !== null){                    // = 반복: 마지막 연산 재적용
+      const prev = s.cur;
+      const r = compute(num(prev), s.lastOp, s.lastB);
+      const f = fmt(r);
+      if (f === null) return errState();
+      s.expr = prev + ' ' + SYM[s.lastOp] + ' ' + fmt(s.lastB) + ' =';
+      s.cur = f; s.overwrite = true; s.justEq = true;
+      return s;
+    }
+    s.expr = s.cur + ' =';
+    return s;
+  }
+
+  return s;
+}
+
+function errState(){
+  return {a:null, op:null, cur:'0', overwrite:true, err:true,
+          justEq:false, lastOp:null, lastB:null, expr:''};
+}
+
+const CORE = { fresh, applyKey, fmt, group, SYM };
+if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
+/*__CORE_END__*/
+
+if (typeof document === 'undefined') return;
+
+const valEl  = document.getElementById('val');
+const exprEl = document.getElementById('expr');
+const state  = fresh();
+
+function sizeClass(s){
+  if (/e/i.test(s)) return 'small';
+  const n = s.length;
+  return n > 12 ? 'tiny' : n > 9 ? 'small' : '';
+}
+
+function render(){
+  if (state.err){
+    valEl.className = 'val err';
+    valEl.textContent = '오류';
+    exprEl.textContent = '0으로 나누거나 숫자 범위를 넘었어요 — AC로 다시 시작';
+    return;
+  }
+  const g = group(state.cur);
+  valEl.className = 'val ' + sizeClass(g);
+  valEl.textContent = g;
+  exprEl.textContent = state.expr || '';
+}
+
+function press(k){ Object.assign(state, applyKey(state, k)); render(); }
+
+document.querySelectorAll('.k').forEach(function(b){
+  b.addEventListener('click', function(){ press(b.dataset.key); b.blur(); });
+});
+
+const KEYMAP = {Enter:'=', '=':'=', Escape:'AC', Delete:'AC', Backspace:'⌫',
+                '%':'%', '+':'+', '-':'-', '*':'*', 'x':'*', 'X':'*',
+                '/':'/', '.':'.', ',':'.'};
+
+function flash(k){
+  const b = document.querySelector('.k[data-key="' + k + '"]');
+  if (!b) return;
+  b.classList.add('pressed');
+  setTimeout(function(){ b.classList.remove('pressed'); }, 120);
+}
+
+window.addEventListener('keydown', function(e){
+  let k = null;
+  if (/^[0-9]$/.test(e.key)) k = e.key;
+  else if (e.key in KEYMAP) k = KEYMAP[e.key];
+  if (!k) return;
+  e.preventDefault();
+  flash(k);
+  press(k);
+});
+
+render();
+})();
+</script>
+</body>
+</html>
